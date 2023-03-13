@@ -1,4 +1,4 @@
-package org.peggy;
+package org.peggy.threads;
 
 /**
  * 为加锁的方法与加锁的方法可以同时的访问

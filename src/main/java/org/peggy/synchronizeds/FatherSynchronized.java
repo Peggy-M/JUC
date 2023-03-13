@@ -1,4 +1,4 @@
-package org.peggy.repetion;
+package org.peggy.synchronizeds;
 
 /**
  * 父类对象加锁

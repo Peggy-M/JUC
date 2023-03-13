@@ -1,4 +1,4 @@
-package org.peggy;
+package org.peggy.threads;
 
 /**
  * 在方法执行的过程中如果出现了异常的情况会提取的释放锁资源

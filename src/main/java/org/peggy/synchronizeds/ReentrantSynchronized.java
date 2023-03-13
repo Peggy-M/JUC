@@ -1,4 +1,4 @@
-package org.peggy.repetion;
+package org.peggy.synchronizeds;
 
 /**
  * 可重新入锁 synchronized 测试

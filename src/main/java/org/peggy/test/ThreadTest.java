@@ -1,4 +1,4 @@
-package org.peggy;
+package org.peggy.test;
 
 /**
  * @author peggy
@@ -6,6 +6,5 @@ package org.peggy;
  */
 public class ThreadTest {
     public static void main(String[] args) {
-        T t=new T();
     }
 }
