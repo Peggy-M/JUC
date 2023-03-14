@@ -4,7 +4,6 @@ import java.util.ArrayList;
 
 /**
  * Volatile 无法保证其原子性
- *
  * @author peggy
  * @date 2023-03-10 20:30
  */
