@@ -488,3 +488,714 @@ public class AtomicIntergerThread {
 
 }
 ~~~
+## 第三天
+### 关于 Atome 与 Sychronizeds 与 Adder 之间的性能测试
+~~~ java
+/**
+ * 关于 Atome 与 Sychronizeds 与 Adder 之间的性能测试 (这个测试类有点问题)
+ * 通过下面的模拟可以看出,在高并发的环境下
+ * LongAdder 的执行效率要比 AtomicLong 的执行效率要高
+ * 因为 LongAdder 的底层使用的一种分段 cas 锁
+ *
+ * @author peggy
+ * @date 2023-03-13 13:37
+ */
+public class AtomeVsSyncVsLongAdder {
+
+    static long count1 = 0L;
+    static AtomicLong count2 = new AtomicLong(0L);
+    static LongAdder longAdder = new LongAdder();
+
+
+    //创建线程并放置到数组中
+    public static void main(String[] args) {
+        Object lock = new Object();
+
+        //通过 synchronized 加锁占用的时间
+        Thread[] threads = new Thread[1000];
+        for (int i = 0; i < threads.length; i++) {
+            threads[i] =
+                    new Thread(() -> {
+                        for (int k = 0; k < 100000; k++) {
+                            synchronized (lock) {
+                                count1++;
+                            }
+                        }
+                    });
+        }
+        long start = System.currentTimeMillis();
+        for (Thread thread : threads) {
+            thread.start();
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        long end = System.currentTimeMillis();
+        System.out.println("count1:" + count1 + "==>" + (end - start));
+
+        //AtomicLong 所用总时间
+        for (int i = 0; i < threads.length; i++) {
+            threads[i] =
+                    new Thread(() -> {
+                        for (int k = 0; k < 100000; k++) count2.incrementAndGet();
+                    });
+        }
+
+        start = System.currentTimeMillis();
+        for (Thread t : threads) {
+            t.start();
+            try {
+                //加入 join 的作用是防止, main 线程在其他线程之前提前结束,从而导致程序提前的终止
+                t.join();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        //当上面的所有的线程结束 main 线程继续
+        end = System.currentTimeMillis();
+        System.out.println("AtomicLong:" + count2 + "==>" + (end - start));
+
+        //通过 longAdder 加锁占用
+        //AtomicLong 所用总时间
+        for (int i = 0; i < threads.length; i++) {
+            threads[i] = new Thread(() -> {
+                for (int k = 0; k < 100000; k++) {
+                    longAdder.add(1);
+                }
+            });
+        }
+
+        start = System.currentTimeMillis();
+        for (Thread t : threads) {
+            t.start();
+            try {
+                //加入 join 的作用是防止, main 线程在其他线程之前提前结束,从而导致程序提前的终止
+                t.join();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        //当上面的所有的线程结束 main 线程继续
+        end = System.currentTimeMillis();
+        System.out.println("longAdder:" + longAdder + "==>" + (end - start));
+
+    }
+}
+~~~
+~~~ java
+/**
+ * @author peggy
+ * @date 2023-03-13 15:03
+ */
+public class AtomeVsSysncVsLongAdder2 {
+    static long count2 = 0L;
+    static AtomicLong count1 = new AtomicLong(0L);
+    static LongAdder count3 = new LongAdder();
+
+    public static void main(String[] args) throws Exception {
+        Thread[] threads = new Thread[1000];
+
+        for(int i=0; i<threads.length; i++) {
+            threads[i] =
+                    new Thread(()-> {
+                        for(int k=0; k<100000; k++) count1.incrementAndGet();
+                    });
+        }
+
+        long start = System.currentTimeMillis();
+
+        for(Thread t : threads ) t.start();
+
+        for (Thread t : threads) t.join();
+
+        long end = System.currentTimeMillis();
+
+        //TimeUnit.SECONDS.sleep(10);
+
+        System.out.println("Atomic: " + count1.get() + " time " + (end-start));
+        //-----------------------------------------------------------
+        Object lock = new Object();
+
+        for(int i=0; i<threads.length; i++) {
+            threads[i] =
+                    new Thread(() -> {
+                        for (int k = 0; k < 100000; k++)
+                            synchronized (lock) {
+                                count2++;
+                            }
+                    });
+        }
+
+        start = System.currentTimeMillis();
+
+        for(Thread t : threads ) t.start();
+
+        for (Thread t : threads) t.join();
+
+        end = System.currentTimeMillis();
+
+
+        System.out.println("Sync: " + count2 + " time " + (end-start));
+
+
+        //----------------------------------
+        for(int i=0; i<threads.length; i++) {
+            threads[i] =
+                    new Thread(()-> {
+                        for(int k=0; k<100000; k++) count3.increment();
+                    });
+        }
+
+        start = System.currentTimeMillis();
+
+        for(Thread t : threads ) t.start();
+
+        for (Thread t : threads) t.join();
+
+        end = System.currentTimeMillis();
+
+        //TimeUnit.SECONDS.sleep(10);
+
+        System.out.println("LongAdder: " + count1.longValue() + " time " + (end-start));
+
+    }
+
+    static void microSleep(int m) {
+        try {
+            TimeUnit.MICROSECONDS.sleep(m);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+~~~
+### 通过 Lock 上锁解锁
+~~~ java
+/**
+ * 通过 Lock 上锁解锁
+ *
+ * @author peggy
+ * @date 2023-03-13 14:54
+ */
+public class T01_ReentranLock1 {
+    Lock lock = new ReentrantLock();
+
+    void m1() {
+        lock.lock();
+        try {
+            for (int i = 0; i < 10; i++) {
+                System.out.println(Thread.currentThread().getName() + "==>" + i);
+                TimeUnit.SECONDS.sleep(1);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            //锁释放
+            lock.unlock();
+        }
+    }
+
+    public static void main(String[] args) {
+        T01_ReentranLock1 t1 = new T01_ReentranLock1();
+        new Thread(t1::m1, "A").start();
+        try {
+            Thread.sleep(10);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        new Thread(t1::m1, "B").start();
+    }
+}
+~~~
+### 尝试等待时间,防止阻塞 ReentrantLock 的 lock.tryLock(10, TimeUnit.SECONDS) 方法
+~~~ java
+/**
+ * 尝试等待时间,防止阻塞
+ * lock.tryLock(10, TimeUnit.SECONDS);
+ * 设置等待尝试获取锁
+ * - 如果在等待的时间内获取锁了则返回 true
+ * - 如果没有获取锁则返回 false
+ * - 可以根据返回的具体结果在 finally 代码块中进行处理其他的方法
+ *
+ * @author peggy
+ * @date 2023-03-13 15:22
+ */
+public class T02_ReentranLock2 {
+    Lock lock = new ReentrantLock();
+
+    void m1() {
+        try {
+            lock.lock();
+            for (int i = 0; i < 5; i++) {
+                System.out.println(Thread.currentThread().getName() + "==>" + i);
+                TimeUnit.SECONDS.sleep(1);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            //锁释放
+            lock.unlock();
+        }
+    }
+
+    void m2() {
+        boolean locked = false;
+        try {
+            locked = lock.tryLock(10, TimeUnit.SECONDS);
+            System.out.println("m2==" + locked);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (locked) {
+                //锁释放
+                lock.unlock();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        T02_ReentranLock2 t1 = new T02_ReentranLock2();
+        new Thread(t1::m1, "A").start();
+        try {
+            Thread.sleep(10);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        new Thread(t1::m2, "B").start();
+    }
+
+}
+~~~
+
+### 可以被打断的锁,可以在等待的过程中对线程的 interrupt() 方法做出响应
+
+~~~ java
+/**
+ * 可以被打断的锁,可以在等待的过程中对线程的  interrupt() 方法做出响应
+ *
+ * @author peggy
+ * @date 2023-03-13 15:46
+ */
+public class T03_ReentranLock3 {
+
+    Lock lock = new ReentrantLock();
+
+    void m1() {
+        try {
+            lock.lock();
+            System.out.println("m1 start run ... ");
+            Thread.sleep(Integer.MAX_VALUE);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            //锁释放
+            lock.unlock();
+        }
+    }
+
+    void m2() {
+        boolean locked = false;
+        try {
+            lock.lockInterruptibly();
+            System.out.println("m2开始执行");
+        } catch (InterruptedException e) {
+            System.out.println("强行终止当前 m2 线程的等待。。。。");
+//            throw new RuntimeException(e);
+        } finally {
+            if (locked) {
+                //锁释放
+                lock.unlock();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        T03_ReentranLock3 t1 = new T03_ReentranLock3();
+        Thread m1 = new Thread(t1::m1, "A");
+        m1.start();
+        try {
+            Thread.sleep(10);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        Thread m2 = new Thread(t1::m2, "B");
+        m2.start();
+        try {
+            TimeUnit.SECONDS.sleep(2);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        //打断线程当前 m2 线程
+        m2.interrupt();
+    }
+
+}
+~~~
+### CountDownLatch 阻塞倒计时的使用
+~~~ java
+/**
+ * CountDownLatch 阻塞倒计时的使用
+ * 应用场景主要是阻塞当前线程,让后台的线程执行完毕后继续执行
+ * CountDownLatch(int count)
+ * count 倒计时计数的结束
+ *
+ * @author peggy
+ * @date 2023-03-13 16:13
+ */
+public class T04_CountDownLatch {
+    static Thread[] thread = new Thread[100];
+    static CountDownLatch countDownLatch = new CountDownLatch(thread.length);
+
+    public static void main(String[] args) {
+        for (int i = 0; i < thread.length; i++) {
+            thread[i] = new Thread(() -> {
+                for (int k = 0; k < 1000; k++) {
+                    System.out.println(Thread.currentThread().getName() + "=====>" + k);
+                }
+                countDownLatch.countDown();
+                System.out.println("线程" + Thread.currentThread().getName() + "执行完毕");
+            }, i + "");
+        }
+        for (Thread t : thread) t.start();
+
+        try {
+            //这个的作用相当于 join ,这里阻塞了当前的 main 线程，直到上面线程执行完毕后才释放
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("main 线程开始执行完毕....");
+    }
+
+}
+~~~ 
+### CyclicBarrier 的阻塞等待执行
+
+~~~ java
+/**
+ * @author peggy
+ * @date 2023-03-13 18:26
+ */
+public class T05_CyclicBarrier {
+    public static void main(String[] args) {
+        //到 20 个的时候就停止阻塞当前的线程
+//                CyclicBarrier barrie = new CyclicBarrier(20);
+        //当前的线程创建执行的数量达到了 20 个每次执行 barrie.await() 方法都会执行 CyclicBarrier 中的方法
+        CyclicBarrier barrie = new CyclicBarrier(10, () -> {
+            System.out.println("已经超出最大上限。。。。");
+        });
+        for (int i = 0; i < 20; i++) {
+            new Thread(() -> {
+                //每一个线程执行到最后调用一次 barrie 中的方法
+                try {
+                    System.out.println(Thread.currentThread().getName() + " ===> 线程开始执行");
+                    barrie.await();
+                    System.out.println(Thread.currentThread().getName() + " ===> 线程完毕");
+                } catch (InterruptedException | BrokenBarrierException e) {
+                    throw new RuntimeException(e);
+                }
+            }, i + "").start();
+//            System.out.println("============main=========》》 " + i);
+        }
+    }
+}
+~~~ 
+
+### Phaser 线程的阶段控制
+~~~ java
+/**
+ * Phaser 是通过变量进行控制着 不同的阶段对当前的线程进行执行
+ * stage = 1  ---> 阶段1             | A | ======> 线程 A 执行
+ * stage = 2  ---> 阶段2         | A | B | ======> 线程 A B执行
+ * stage = 3  ---> 阶段3     | A | B | C | ======> 线程 A B C执行
+ * stage = 4  ---> 阶段4 | A | B | C | D | ======> 线程 A B C D执行
+ * <p>
+ * 像这种的类型就是线程以此进行执行,先异步执行,再同步执行
+ * 应用场景:
+ * 遗传学 可以用于过滤
+ *
+ * @author peggy
+ * @date 2023-03-14 12:20
+ */
+public class T06_Phaser {
+    static Random r = new Random();
+    static MarriagePhaser phaser = new MarriagePhaser();
+
+    //随机时间获取
+    static void milliSleep(int milli) {
+        try {
+            TimeUnit.MILLISECONDS.sleep(milli);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+
+        //设置线程等待的次数
+        phaser.bulkRegister(7);
+
+        for (int i = 0; i < 5; i++) {
+            final int nameIndex = i;
+            new Thread(new Person("person " + nameIndex)).start();
+        }
+        new Thread(new Person("新郎")).start();
+
+        new Thread(new Person("新娘")).start();
+
+    }
+
+
+    static class MarriagePhaser extends Phaser {
+        //每一个被拦截的栅栏被推倒后,就会执行的方法
+        @Override
+        protected boolean onAdvance(int phase, int registeredParties) {
+            // phase 当前所处的阶段 registeredPatiers 当前有多少线程参与了
+            switch (phase) {
+                case 0:
+                    System.out.println("所有人到齐了！当前的人数==>" + registeredParties);
+                    return false;
+                case 1:
+                    System.out.println("所有人吃完了！当前的人数==>" + registeredParties);
+                    return false;
+                case 2:
+                    System.out.println("所有人离开了！当前的人数==>" + registeredParties);
+                    return false;
+                case 3:
+                    System.out.println("婚礼结束！当前的人数==>" + registeredParties);
+                    return true;
+                default:
+                    return true;
+            }
+        }
+    }
+
+
+    static class Person implements Runnable {
+        String name;
+
+        public Person(String name) {
+            this.name = name;
+        }
+
+        public void arrive() {
+            milliSleep(r.nextInt(1000));
+            System.out.printf("%s 到达现场！\n", name);
+            //每一个线程执行到这个方法的时候,就会等待。当达到指定数量的时候再进行执行
+            phaser.arriveAndAwaitAdvance();
+        }
+
+        public void eat() {
+            milliSleep(r.nextInt(1000));
+            System.out.printf("%s 吃完!\n", name);
+            phaser.arriveAndAwaitAdvance();
+        }
+
+        public void leave() {
+            milliSleep(r.nextInt(1000));
+            System.out.printf("%s 离开！\n", name);
+            phaser.arriveAndAwaitAdvance();
+        }
+
+        public void happy() {
+            if (name.equals("新娘") || name.equals("新郎")) {
+                milliSleep(r.nextInt(1000));
+                System.out.printf("%s 花烛夜 \n", name);
+                phaser.arriveAndAwaitAdvance();
+            } else {
+                    //到这个阶段过滤到一些线程,让其提前结束,无须在这里继续等待
+                phaser.arriveAndDeregister();
+            }
+
+        }
+
+        @Override
+        public void run() {
+            arrive();
+            eat();
+            leave();
+            happy();
+        }
+    }
+
+    /**
+     * 新郎 到达现场！
+     * 新娘 到达现场！
+     * person 2 到达现场！
+     * person 3 到达现场！
+     * person 4 到达现场！
+     * person 1 到达现场！
+     * person 0 到达现场！
+     * 所有人到齐了！当前的人数==>7
+     * person 4 吃完!
+     * person 0 吃完!
+     * person 1 吃完!
+     * person 3 吃完!
+     * 新娘 吃完!
+     * person 2 吃完!
+     * 新郎 吃完!
+     * 所有人吃完了！当前的人数==>7
+     * person 3 离开！
+     * 新郎 离开！
+     * person 1 离开！
+     * person 0 离开！
+     * 新娘 离开！
+     * person 2 离开！
+     * person 4 离开！
+     * 所有人离开了！当前的人数==>7
+     * 新娘 花烛夜
+     * 新郎 花烛夜
+     * 婚礼结束！当前的人数==>2
+     *
+     */
+}
+~~~
+
+### ReadWriteLock 读写锁
+~~~ java
+/**
+ * ReadWriteLock 读写锁
+ * 用于读（共享锁）多写（排它锁）少的情况
+ * @author peggy
+ * @date 2023-03-14 14:54
+ */
+public class T07_ReadWriteLock {
+    static ReentrantLock lock = new ReentrantLock();
+    static ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    static Lock redaLock = readWriteLock.readLock();
+    static Lock writeLock = readWriteLock.writeLock();
+
+    public static void read(Lock lock) {
+        lock.lock();
+        try {
+            TimeUnit.SECONDS.sleep(1);
+            System.out.println("reda...over");
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            lock.unlock();
+        }
+
+    }
+
+    public static void write(Lock lock) {
+        lock.lock();
+        try {
+            TimeUnit.SECONDS.sleep(1);
+            System.out.println("write...over");
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public static void main(String[] args) {
+//        无论执行那个方法都会处于阻塞的状态
+//        Runnable reLock = () -> read(lock);
+
+//        对于读的状态是一个 共享锁 允许多线程并发执行,
+        Runnable reLock = () -> read(redaLock);
+
+//        Runnable wrLock = () -> write(lock);
+//        对于写状态而言,此时就是一个 排它锁 单位时间内只允许一个线程访问
+        Runnable wrLock = () -> write(writeLock);
+
+        for (int i = 0; i < 10; i++) new Thread(reLock).start();
+        for (int i = 0; i < 2; i++) new Thread(wrLock).start();
+    }
+}
+~~~
+
+### 信号量 Semaphore 同时允许有多个线程在运行
+~~~ java
+/**
+ * 信号量 Semaphore 同时允许有多个线程在运行
+ * 应用场景
+ *  - 限流
+ *  - 车道与收费站
+ *  - 购票 （例如余票只有 5 个只允许并发的只有 5 个 线程）
+ * @author peggy
+ * @date 2023-03-14 15:49
+ */
+public class T08_Semaphore {
+    public static void main(String[] args) {
+        /**
+         * 当这里设置为 1 的时候此时,只限制允许一个线程执行
+         * 当这里设置为 2 的时候,此时允许两个线程同时执行
+         * 在这里很多人都认为这个与线程池是相同的
+         *
+         * 线程池是自动创建线程的
+         *  而对于 Semaphore 是需要我自己手动创建线程的
+         *  可参考该连接 https://blog.csdn.net/bobozai86/article/details/114004451
+         */
+        Semaphore semaphore = new Semaphore(1);
+
+        new Thread(() -> {
+            try {
+                semaphore.acquire();
+                System.out.println("线程A 在执行中。。。");
+                Thread.sleep(1000);
+                System.out.println("线程A 执行完毕。。。");
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }finally {
+                semaphore.release();
+            }
+        },"A").start();
+
+        new Thread(() -> {
+            try {
+                semaphore.acquire();
+                System.out.println("线程B 在执行中。。。");
+                Thread.sleep(1000);
+                System.out.println("线程B 执行完毕。。。");
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }finally {
+                semaphore.release();
+            }
+        },"B").start();
+    }
+}
+~~~
+
+### Exchanger 线程中的变量交换
+~~~ java
+/**
+ *  Exchanger 线程的交换
+ * @author peggy
+ * @date 2023-03-14 21:16
+ */
+public class T09_Exchanger {
+    static Exchanger<String> exchanger = new Exchanger<>();
+
+    public static void main(String[] args) {
+        new Thread(()->{
+            String str="t1";
+            try {
+                final String s = exchanger.exchange(str);
+                System.out.println("线程==>"+Thread.currentThread().getName()+"===>str==>"+s);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        },"T1").start();
+
+        new Thread(()->{
+            String str="t2";
+            try {
+                final String s = exchanger.exchange(str);
+                System.out.println("线程==>"+Thread.currentThread().getName()+"===>str==>"+s);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        },"T2").start();
+    }
+}
+~~~
+
+
+
