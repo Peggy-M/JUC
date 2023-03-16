@@ -1,4 +1,51 @@
 # JUC
+
+目录
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+**Day01**
+1. 加锁与不加锁造成的数据丢失问题
+2. 在方法的执行过程中出现异常提前释放锁资源
+3. 可重新入锁 synchronized 测试
+4. 对于基本数据类型 String 类型的常量是不能做为锁对象使用
+
+**Day02**
+1. volatile 线程的可见性问题
+2. 在方法的执行过程中出现异常提前释放锁资源
+3. 可重新入锁 synchronized 测试
+4. 锁细化 与 锁粗化 的使用场景
+5. 锁对象发生改变引起的锁失效
+6. 单例模式
+    - 懒汉式单利
+    - 饿汉式单利
+7. 单利模式下的双重检验锁中关于 volatile 的使用
+8. 关于 Atomic 内部的实现的原理
+
+**Day03**
+1. 关于 Atome 与 Sychronizeds 与 Adder 之间的性能测试
+2. 通过 Lock 上锁解锁
+3. 尝试等待时间,防止阻塞 ReentrantLock 的 lock.tryLock(10, TimeUnit.SECONDS) 方法
+4. 可以被打断的锁,可以在等待的过程中对线程的 interrupt() 方法做出响应
+5. CountDownLatch 阻塞倒计时的使用
+6. CyclicBarrier 的阻塞等待执行
+7. Phaser 线程的阶段控制
+8. ReadWriteLock 读写锁
+9. 信号量 Semaphore 同时允许有多个线程在运行
+10. Exchanger 线程中的变量交换
+
+**Day05**
+1. 固定容量的同步的容器
+1. CountDownLath 方法测试
+1. CountDownLath 方法测试第二版
+1. VarHandle 操作内存中原子性的操作
+1. 本地多线程
+1. 软引用
+1. 强引用
+1. 虚引用
+1. 弱引用
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
 ## 第一天
 ### 加锁与不加锁造成的数据丢失问题
 ~~~ java
@@ -179,7 +226,7 @@ public class StringSynchronized {
         new Thread(stringSynchronized::getValue2,"t2").start();
     }
 }
-~~~ 
+~~~
 
 ## 第二天
 ### volatile 线程的可见性问题
@@ -871,7 +918,7 @@ public class T04_CountDownLatch {
     }
 
 }
-~~~ 
+~~~
 ### CyclicBarrier 的阻塞等待执行
 
 ~~~ java
@@ -902,7 +949,7 @@ public class T05_CyclicBarrier {
         }
     }
 }
-~~~ 
+~~~
 
 ### Phaser 线程的阶段控制
 ~~~ java
@@ -1196,6 +1243,431 @@ public class T09_Exchanger {
     }
 }
 ~~~
+## 第五天
+### 固定容量的同步的容器
+~~~ java
+/**
+ * 写一个固定容量的同步的容器
+ * 用于 put 与 get 方法,以及 getCount 方法
+ * 能够支持 2 个生产者与 10 个消费者的阻塞调用
+ *
+ * @author peggy
+ * @date 2023-03-15 15:22
+ */
+public class ProducersAndConsumers {
+    static List<Object> tankage = new ArrayList<>();
+
+    public synchronized void put(Object obj) {
+        tankage.add(obj);
+    }
+
+    public synchronized void get() {
+        tankage.remove(1);
+    }
+
+    public synchronized int getCount() {
+        return tankage.size();
+    }
+
+    public static void main(String[] args) {
+
+        ProducersAndConsumers p = new ProducersAndConsumers();
+
+        Thread[] producer = new Thread[2];
+        Thread[] cousumer = new Thread[10];
+
+        for (int i = 0; i < producer.length; i++) {
+            producer[i] = new Thread(() -> {
+                //如果有剩余消费者消费
+                if (p.getCount() > 0) {
+                    p.get();
+                    System.out.println("消费者" + Thread.currentThread().getName() + "消费成功==> " + p.getCount());
+                }
+            }, "消费者-" + i);
+        }
+
+        for (int i = 0; i < cousumer.length; i++) {
+            cousumer[i] = new Thread(() -> {
+                //如果有剩余消费者消费
+                if (p.getCount() <= 0) {
+                    p.put(new Object());
+                    System.out.println("生产者" + Thread.currentThread().getName() + "生产成功==> " + p.getCount());
+                }
+            }, "生产者-" + i);
+        }
+
+        for (Thread thread : producer) {
+            thread.start();
+        }
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        for (Thread thread : cousumer) {
+            thread.start();
+        }
+
+    }
+}
+~~~
+### CountDownLath 方法测试
+~~~ java
+/**
+ * CountDownLath 方法测试
+ * @author peggy
+ * @date 2023-03-15 14:38
+ */
+public class T11_CountDownLath {
+    volatile List lists = new ArrayList<>();
+
+    public void add(Object o) {
+        lists.add(o);
+    }
+
+    public int size() {
+        return lists.size();
+    }
+
+    public static void main(String[] args) {
+        T11_CountDownLath countDownLath = new T11_CountDownLath();
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        new Thread(() -> {
+            System.out.println("线程 T2 启动");
+            if (countDownLath.size() != 5) {
+                try {
+                    latch.await();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            System.out.println("线程 T2 结束");
+        },"T2").start();
+
+        try {
+            TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        new Thread(() -> {
+            System.out.println("线程 T1 启动");
+            for (int i = 0; i < 10; i++) {
+                countDownLath.add(new Object());
+                System.out.println("add--->" + i);
+                if (countDownLath.size() == 5) {
+                    latch.countDown();
+                }
+                /*
+                * 这里存在的问题就是,虽然当 i=5 的时候 T1 线程,执行了 countDown 方法
+                * 但是由于 T2 还没来的及执行打印方法
+                * T1 已经开始执行并打印
+                * 当我们在这里执行休眠方法的时候,为线程 T2 提供了打印的时间
+                * */
+                /*try {
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }*/
+            }
+        },"T1").start();
+
+    }
+}
+~~~
+### CountDownLath 方法测试第二版
+~~~ java
+/**
+ * CountDownLath 方法测试第二版
+ * 为了解决上述出现的问题，需要处理就是添加在原来 T1 线程中的方法中添加一个新的门闩
+ * @author peggy
+ * @date 2023-03-15 14:38
+ */
+public class T11_CountDownLathPlus {
+    volatile List lists = new ArrayList<>();
+
+    public void add(Object o) {
+        lists.add(o);
+    }
+
+    public int size() {
+        return lists.size();
+    }
+
+    public static void main(String[] args) {
+        T11_CountDownLathPlus countDownLath = new T11_CountDownLathPlus();
+
+        CountDownLatch latch1 = new CountDownLatch(1);
+        CountDownLatch latch2 = new CountDownLatch(1);
+
+        new Thread(() -> {
+            System.out.println("线程 T2 启动");
+            if (countDownLath.size() != 5) {
+                try {
+                    latch1.await();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            System.out.println("线程 T2 结束");
+            latch2.countDown();
+        },"T2").start();
+
+        try {
+            TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        new Thread(() -> {
+            System.out.println("线程 T1 启动");
+            for (int i = 0; i < 10; i++) {
+                countDownLath.add(new Object());
+                System.out.println("add--->" + i);
+                if (countDownLath.size() == 5) {
+                    latch1.countDown();
+                    try {
+                        latch2.await();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        },"T1").start();
+
+    }
+}
+~~~
+### VarHandle 操作内存中原子性的操作
+~~~ java
+/**
+ * VarHandle 操作内存中原子性的操作
+ * 在 jdk9以后的版本中提供了 VarHandle 操作的方法
+ * findVarHandle(T12_HelloVarHandle.class, "x", int.class)
+ * 类对象 变量名 变量类型
+ * @author peggy
+ * @date 2023-03-16 10:50
+ */
+public class T12_HelloVarHandle {
+    int x = 0;
+    private static VarHandle handle;
+
+    static {
+        try {
+            handle = MethodHandles.lookup().findVarHandle(T12_HelloVarHandle.class, "x", int.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void main(String[] args) {
+        T12_HelloVarHandle t=new T12_HelloVarHandle();
+
+        System.out.println((int) handle.get(t));
+        handle.set(t,9);
+        System.out.println("当前的对象:"+t.x);
+
+        handle.compareAndExchange(t,9,10);
+        System.out.println("操作之后:"+t.x);
+
+        handle.getAndAdd(t,10);
+        System.out.println("现在的对象:"+t.x);
+    }
+}
+~~~
+### 本地多线程
+~~~ java
+/**
+ * 本地多线程
+ * @author peggy
+ * @date 2023-03-16 11:12
+ */
+public class T13_ThreadLock {
+    static ThreadLocal<User> t1  = new ThreadLocal<>();
+
+    public static void main(String[] args) {
+        new Thread(() -> {
+            try {
+                TimeUnit.SECONDS.sleep(2);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            final User user = t1.get();
+            System.out.println(user);
+        }).start();
+
+        new Thread(() -> {
+            try {
+                TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            t1.set(new User("卡卡罗特", 18));
 
 
+            /**
+             *
+             * ThreadLocal values pertaining to this thread. This map is maintained
+             * by the ThreadLocal class.
+             *
+             * ThreadLocal.ThreadLocalMap threadLocals = null;
+             *
+             *     public void set(T value) {
+             *         Thread t = Thread.currentThread(); //获取当前的线程对象
+             *         ThreadLocalMap map = getMap(t); //获取当前线程对象的中 ThreadLocalMap 对象
+             *         if (map != null) {
+             *             map.set(this, value); //将当前线程对象做为 key
+             *         } else {
+             *             createMap(t, value);
+             *         }
+             *     }
+             */
+        }).start();
+    }
 
+}
+~~~
+### 软引用
+~~~ java
+/**
+ * 软引用
+ * -Xms20M -Xmx20M
+ * 垃圾回收不一定会回收此对象,只有在空间不够的时候才会回收
+ * 软引用可以用来干什么呢？
+ * 一般可以做为缓存使用
+ *  比如:
+ *      我们需要处理一张比较大的图片,我们可以处理完后这个图片后可以将该图片先缓存起来
+ *      也就是说,我们下次使用的时候可以取出该图片
+ *      又或者说,我们可以中间处理的大量的数据
+ *      也可以作为缓存使用
+ *
+ * @author peggy
+ * @date 2023-03-16 17:13
+ */
+public class SoftQuote {
+    public static void main(String[] args) {
+
+        SoftReference<byte[]> m = new SoftReference<>(new byte[1024 * 1024 * 10]);
+        System.out.println(m.get());
+        System.gc();
+
+
+        try {
+            TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        System.out.println(m.get());
+        //此时再分配一个数组,heap堆不够使用,这个时候系统会进行垃圾回收,如果不够软引用会被清理掉
+        byte[] byte2 = new byte[1024 * 1024 * 10];
+
+        System.out.println(m.get());
+    }
+}
+~~~
+### 强引用
+~~~ java
+/**
+ * 强引用
+ * @author peggy
+ * @date 2023-03-16 17:06
+ */
+public class StrongQuote {
+    public static void main(String[] args) {
+        M m = new M();
+//        m = null;
+        System.gc();
+        //阻塞当前的线程,由于调用 gc 的时候调用了其他的线程,所以必须先将当前的主线程进行阻塞,防止提前结束
+        try {
+            System.in.read();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+~~~
+### 虚引用
+~~~ java
+/**
+ * 虚引用
+ *
+ * @author peggy
+ * @date 2023-03-16 19:06
+ */
+public class VirtualQuote {
+    private final static List<Object> LIST = new ArrayList<>();
+    private final static ReferenceQueue<M> QUEUE = new ReferenceQueue<>();
+
+    public static void main(String[] args) {
+
+        PhantomReference<M> phantomReference = new PhantomReference<>(new M(), QUEUE);
+
+        new Thread(() -> {
+            while (true) {
+                // -Xms20M -Xmx20M
+                LIST.add(new byte[1024 * 1024]);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    //打印跟栈信息
+                    e.printStackTrace();
+                    throw new RuntimeException(e);
+                }
+                System.out.println(phantomReference.get());
+            }
+        }).start();
+
+        new Thread(() -> {
+            while (true) {
+                /**
+                 * finlize
+                 * null
+                 * 虚拟机对象被 jvm 回收了----java.lang.ref.PhantomReference@1e74cb09
+                 * 这里其实相当于一个监控,当监控到虚引用中的队列的中的对象被回收的时候,然后去处理回收对外内存
+                 */
+                //检测到对象被回收的时候,会进行动态的处理
+                Reference<? extends M> reference = QUEUE.poll();
+                if (reference != null) {
+                    System.out.println("虚拟机对象被 jvm 回收了----" + reference);
+                }
+            }
+        }).start();
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+    }
+}
+~~~
+### 弱引用
+~~~ java
+/**
+ * 弱引用
+ * 只要发生一个 full GC 就会直接回收掉此对象
+ * @author peggy
+ * @date 2023-03-16 18:11
+ */
+public class WeakQuote {
+    public static void main(String[] args) {
+        //     private T referent;         /* Treated specially by GC */
+        //    Reference(T referent) { this(referent, null); }
+        WeakReference<M> weakReference=new WeakReference<>(new M());
+
+        System.out.println(weakReference.get());
+        System.gc();
+        System.out.println(weakReference.get());
+
+
+        // static class Entry extends WeakReference<ThreadLocal<?>>
+        ThreadLocal<M> tl=new ThreadLocal<>();
+        tl.set(new M());
+        tl.remove();
+    }
+}
+~~~
