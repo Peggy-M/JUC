@@ -37,6 +37,11 @@ public class ReentrantSynchronized extends FatherSynchronized {
 
     public synchronized void t2() {
         System.out.println("方法t2开始执行");
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
     public static void main(String[] args) {
         ReentrantSynchronized r = new ReentrantSynchronized();

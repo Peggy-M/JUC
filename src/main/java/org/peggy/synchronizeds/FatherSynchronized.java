@@ -8,6 +8,7 @@ package org.peggy.synchronizeds;
 public class FatherSynchronized {
     Integer age = 10;
     public synchronized void setAge() {
+        System.out.println("父类执行完毕。。。");
         age--;
     }
 }

@@ -1,41 +1,8 @@
 # JUC
-
-## 目录
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-**Day01**
-1. 加锁与不加锁造成的数据丢失问题
-2. 在方法的执行过程中出现异常提前释放锁资源
-3. 可重新入锁 synchronized 测试
-4. 对于基本数据类型 String 类型的常量是不能做为锁对象使用
-
-**Day02**
-1. volatile 线程的可见性问题
-2. 在方法的执行过程中出现异常提前释放锁资源
-3. 可重新入锁 synchronized 测试
-4. 锁细化 与 锁粗化 的使用场景
-5. 锁对象发生改变引起的锁失效
-6. 单例模式
-   - 懒汉式单利
-   - 饿汉式单利
-7. 单利模式下的双重检验锁中关于 volatile 的使用
-8. 关于 Atomic 内部的实现的原理
-
-**Day03**
-1. 关于 Atome 与 Sychronizeds 与 Adder 之间的性能测试
-2. 通过 Lock 上锁解锁
-3. 尝试等待时间,防止阻塞 ReentrantLock 的 lock.tryLock(10, TimeUnit.SECONDS) 方法
-4. 可以被打断的锁,可以在等待的过程中对线程的 interrupt() 方法做出响应
-5. CountDownLatch 阻塞倒计时的使用
-6. CyclicBarrier 的阻塞等待执行
-7. Phaser 线程的阶段控制
-8. ReadWriteLock 读写锁
-9. 信号量 Semaphore 同时允许有多个线程在运行
-10. Exchanger 线程中的变量交换 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 ## 第一天
-### 1、加锁与不加锁造成的数据丢失问题
+### 加锁与不加锁造成的数据丢失问题
 ~~~ java
+
 /**
  * 加锁与不加锁造成的数据丢失
  * @author peggy
@@ -71,7 +38,7 @@ public class SynchroizedeDome01 {
 }
 ~~~
 
-### 2、在方法的执行过程中出现异常提前释放锁资源
+### 在方法的执行过程中出现异常提前释放锁资源
 ~~~ java
 
 
@@ -119,7 +86,7 @@ public class ExceptionThread {
 }
 
 ~~~
-### 3、可重新入锁 synchronized 测试
+### 可重新入锁 synchronized 测试
 ~~~ java
 
 /**
@@ -169,7 +136,7 @@ public class ReentrantSynchronized extends FatherSynchronized {
 
 ~~~
 
-### 4、对于基本数据类型 String 类型的常量是不能做为锁对象使用
+### 对于基本数据类型 String 类型的常量是不能做为锁对象使用的
 ~~~ java
 
 /**
@@ -215,7 +182,7 @@ public class StringSynchronized {
 ~~~ 
 
 ## 第二天
-### 5、volatile 线程的可见性问题
+### volatile 线程的可见性问题
 ~~~ java
 /**
  * volatile 线程的可见性
@@ -244,7 +211,7 @@ public class VolatileThread {
 }
 ~~~
 
-### 6、volatile 无法保证其原子性
+### volatile 无法保证其原子性
 ~~~ java
 /**
  * Volatile 无法保证其原子性
@@ -285,7 +252,7 @@ public class VolatileNoSort {
 }
 ~~~
 
-### 7、锁细化 与 锁粗化 的使用场景
+### 锁细化 与 锁粗化 的使用场景
 ~~~ java
 /**
  * 锁细化 与 锁粗化 的使用场景
@@ -325,7 +292,7 @@ public class SynchronizedRange {
 }
 ~~~
 
-### 8、锁对象发生改变引起的锁失效
+### 锁对象发生改变引起的锁失效
 ~~~ java
 /**
  * 锁对象发生改变引起的锁失效
@@ -360,8 +327,8 @@ public class SynchronizedObjChange {
 }
 ~~~
 
-### 9、单例模式
-#### 9.1、懒汉式单利
+### 单例模式
+#### 懒汉式单利
 ~~~ java
 /**
  * 懒汉 Synchronized 模式
@@ -398,7 +365,7 @@ public class HungerSingletonSynchronized {
 }
 ~~~
 
-#### 9.2、饿汉式单利
+#### 饿汉式单利
 ~~~ java
 /**
  * 饿汉模式(线程不安全)
@@ -429,7 +396,7 @@ public class HungerSingleton {
     }
 }
 ~~~
-#### 10、单利模式下的双重检验锁中关于 volatile 的使用
+#### 单利模式下的双重检验锁中关于 volatile 的使用
 ~~~ java
 /**
  * 单利模式下的双重检验锁中关于 volatile 的使用
@@ -478,7 +445,7 @@ public class SingletonDoubleCheckout {
     }
 }
 ~~~
-### 11、关于 Atomic 内部的实现的原理
+### 关于 Atomic 内部的实现的原理
 ~~~ java
 /**
  * 关于 Atomic 内部的实现的原理
@@ -522,7 +489,7 @@ public class AtomicIntergerThread {
 }
 ~~~
 ## 第三天
-### 12、关于 Atome 与 Sychronizeds 与 Adder 之间的性能测试
+### 关于 Atome 与 Sychronizeds 与 Adder 之间的性能测试
 ~~~ java
 /**
  * 关于 Atome 与 Sychronizeds 与 Adder 之间的性能测试 (这个测试类有点问题)
@@ -704,7 +671,7 @@ public class AtomeVsSysncVsLongAdder2 {
     }
 }
 ~~~
-### 13、通过 Lock 上锁解锁
+### 通过 Lock 上锁解锁
 ~~~ java
 /**
  * 通过 Lock 上锁解锁
@@ -742,7 +709,7 @@ public class T01_ReentranLock1 {
     }
 }
 ~~~
-### 14、尝试等待时间,防止阻塞 ReentrantLock 的 lock.tryLock(10, TimeUnit.SECONDS) 方法
+### 尝试等待时间,防止阻塞 ReentrantLock 的 lock.tryLock(10, TimeUnit.SECONDS) 方法
 ~~~ java
 /**
  * 尝试等待时间,防止阻塞
@@ -802,7 +769,7 @@ public class T02_ReentranLock2 {
 }
 ~~~
 
-### 15、可以被打断的锁,可以在等待的过程中对线程的 interrupt() 方法做出响应
+### 可以被打断的锁,可以在等待的过程中对线程的 interrupt() 方法做出响应
 
 ~~~ java
 /**
@@ -867,7 +834,7 @@ public class T03_ReentranLock3 {
 
 }
 ~~~
-### 16、CountDownLatch 阻塞倒计时的使用
+### CountDownLatch 阻塞倒计时的使用
 ~~~ java
 /**
  * CountDownLatch 阻塞倒计时的使用
@@ -905,7 +872,7 @@ public class T04_CountDownLatch {
 
 }
 ~~~ 
-### 17、CyclicBarrier 的阻塞等待执行
+### CyclicBarrier 的阻塞等待执行
 
 ~~~ java
 /**
@@ -937,7 +904,7 @@ public class T05_CyclicBarrier {
 }
 ~~~ 
 
-### 18、Phaser 线程的阶段控制
+### Phaser 线程的阶段控制
 ~~~ java
 /**
  * Phaser 是通过变量进行控制着 不同的阶段对当前的线程进行执行
@@ -1087,7 +1054,7 @@ public class T06_Phaser {
 }
 ~~~
 
-### 19、ReadWriteLock 读写锁
+### ReadWriteLock 读写锁
 ~~~ java
 /**
  * ReadWriteLock 读写锁
@@ -1143,7 +1110,7 @@ public class T07_ReadWriteLock {
 }
 ~~~
 
-### 20、信号量 Semaphore 同时允许有多个线程在运行
+### 信号量 Semaphore 同时允许有多个线程在运行
 ~~~ java
 /**
  * 信号量 Semaphore 同时允许有多个线程在运行
@@ -1196,7 +1163,7 @@ public class T08_Semaphore {
 }
 ~~~
 
-### 21、Exchanger 线程中的变量交换
+### Exchanger 线程中的变量交换
 ~~~ java
 /**
  *  Exchanger 线程的交换
